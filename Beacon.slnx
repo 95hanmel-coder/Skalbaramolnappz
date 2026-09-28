@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Beacon.Api/Beacon.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Beacon.Tests/Beacon.Tests.csproj" />
+  </Folder>
 </Solution>
