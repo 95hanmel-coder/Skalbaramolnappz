@@ -1,0 +1,7 @@
+@host = http://localhost:5001
+
+###
+GET {{host}}/
+
+###
+GET {{host}}/health
