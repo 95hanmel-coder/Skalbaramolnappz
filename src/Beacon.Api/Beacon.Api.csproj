@@ -6,4 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <Target Name="ZipPublishOutput" AfterTargets="Publish">
+    <ZipDirectory SourceDirectory="$(PublishDir)"
+                  DestinationFile="$(PublishDir)../app.zip"
+                  Overwrite="true" />
+  </Target>
+
 </Project>
