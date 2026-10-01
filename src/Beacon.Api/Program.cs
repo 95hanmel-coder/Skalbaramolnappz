@@ -4,7 +4,7 @@ var app = builder.Build();
 app.MapGet("/", () => new
 {
     app = "Beacon",
-    status = "running"
+    status = "live via pipeline"
 });
 
 app.MapGet("/health", () => Results.Ok("OK"));
