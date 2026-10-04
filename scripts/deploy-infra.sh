@@ -75,3 +75,34 @@ else
   echo "Secret:         gh is not installed, so the secret was NOT rotated."
   echo "                Set it by hand, or your next push will fail to deploy."
 fi
+# The role assignment belongs to the resource group, not the identity, so it
+# dies with every teardown. The identity itself survives in Entra ID. Look it
+# up by name rather than storing its id in the file.
+SP_NAME="${SP_NAME:-gh-clo25-hanita}"
+
+SP_OBJECT_ID=$(az ad sp list \
+  --display-name "$SP_NAME" \
+  --query "[?displayName=='$SP_NAME'].id" \
+  --output tsv 2>/dev/null || true)
+
+if [ -n "${SP_OBJECT_ID:-}" ]; then
+  SCOPE="/subscriptions/$(az account show --query id --output tsv)"
+  SCOPE="$SCOPE/resourceGroups/$RESOURCE_GROUP"
+  EXISTING=$(az role assignment list \
+    --assignee-object-id "$SP_OBJECT_ID" \
+    --scope "$SCOPE" \
+    --fill-principal-name false \
+    --query "[0].id" \
+    --output tsv)
+  if [ -z "$EXISTING" ]; then
+    echo "Role:           granting Contributor to the pipeline identity"
+    az role assignment create \
+      --assignee-object-id "$SP_OBJECT_ID" \
+      --assignee-principal-type ServicePrincipal \
+      --role Contributor \
+      --scope "$SCOPE" \
+      --output none
+  else
+    echo "Role:           pipeline identity already has Contributor"
+  fi
+fi
