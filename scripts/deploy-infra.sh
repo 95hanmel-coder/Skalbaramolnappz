@@ -48,3 +48,30 @@ APP_URL=$(az deployment group create \
   --output tsv)
 
 echo "Done. App URL: $APP_URL"
+
+
+# The publish profile belongs to the app instance, so it changes every time the
+# app is recreated. Rotate it here, where we know that just happened.
+APP_NAME="${APP_NAME:-app-clo25-hanita}"
+
+# A recreated app gets the subscription default for SCM basic auth, which is
+# usually off. Without this, reading the publish profile below fails with 403.
+az resource update \
+  --resource-group "$RESOURCE_GROUP" \
+  --namespace Microsoft.Web \
+  --resource-type basicPublishingCredentialsPolicies \
+  --name scm \
+  --parent "sites/$APP_NAME" \
+  --set properties.allow=true \
+  --output none
+
+if command -v gh > /dev/null 2>&1; then
+  echo "Secret:         rotating AZURE_WEBAPP_PUBLISH_PROFILE"
+  az webapp deployment list-publishing-profiles \
+    --name "$APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --xml | gh secret set AZURE_WEBAPP_PUBLISH_PROFILE
+else
+  echo "Secret:         gh is not installed, so the secret was NOT rotated."
+  echo "                Set it by hand, or your next push will fail to deploy."
+fi
