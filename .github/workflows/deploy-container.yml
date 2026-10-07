@@ -1,4 +1,4 @@
-name: Build and push the container image to ACR
+name: Build and deploy the container to Container Apps
 
 on:
   push:
@@ -8,10 +8,16 @@ on:
       - '**.md'
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
+  AZURE_RESOURCE_GROUP: rg-clo25-hanita-sc
   ACR_LOGIN_SERVER: acrclo25hanita.azurecr.io
   ACR_USERNAME: acrclo25hanita
   IMAGE_NAME: beacon
+  CONTAINER_APP_NAME: ca-clo25-hanita
 
 jobs:
   build-and-push:
@@ -43,5 +49,34 @@ jobs:
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
 
-      - name: Print the tag to roll out
-        run: echo "Roll out with tag ${{ github.sha }}"
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code (needed for the script)
+        uses: actions/checkout@v7
+
+      - name: Sign in to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Roll out the new image
+        run: |
+          IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}"
+          az containerapp update \
+            --name "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --image "$IMAGE:${{ github.sha }}"
+
+      - name: Health check after deployment
+        run: |
+          FQDN=$(az containerapp show \
+            --name "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+          chmod +x ./scripts/health-check.sh
+          ./scripts/health-check.sh "https://$FQDN/health"
